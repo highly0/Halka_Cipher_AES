@@ -5,8 +5,8 @@ def pad(plaintext, length=16):
     a whole block will be added.
     """
     padding_len = length - (len(plaintext) % length)
-    padding = bytes([padding_len] * padding_len)
-    return plaintext + padding
+    padding = [padding_len] * padding_len
+    return list(plaintext) + list(padding)
 
 def unpad(plaintext):
     """
@@ -28,7 +28,7 @@ def bytes2matrix(text, n=4):
     return [list(text[i:i+n]) for i in range(0, len(text), n)]
 
 def matrix2bytes(matrix):
-    """ Converts a 4x4 matrix into a 16-byte array.  """
+    """ Converts a nxn matrix into a 16-byte array.  """
     return bytes(sum(matrix, []))
 
 def xor_bytes(a, b):

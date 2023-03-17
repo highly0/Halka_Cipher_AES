@@ -38,18 +38,40 @@ inv_s_box = (
             0xb0, 0x56, 0xc1, 0xf7, 0x8e, 0xb3, 0x98, 0xed, 0x94, 0x21, 0xfd, 0xf5, 0x53, 0xa2, 0x0e, 0xe9,
             )
 
+permutation_map = [10, 21, 28, 38, 44, 48, 59, 1, 51, 15, 41, 2, 60, 34, 24, 20, 56, 6,
+                17, 31, 36, 53, 12, 46, 30, 52, 11, 4, 23, 35, 40, 63, 8, 39, 3, 43,57,49,
+                16,25,37,42,61,50, 0, 9, 18,26,58,55, 7, 19,29,14,47,32,33, 5, 62,45,13,54,22,27]
 
-# TODO: Change P-box
 def shift_rows(s):
-    s[0][1], s[1][1], s[2][1], s[3][1] = s[1][1], s[2][1], s[3][1], s[0][1]
-    s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
-    s[0][3], s[1][3], s[2][3], s[3][3] = s[3][3], s[0][3], s[1][3], s[2][3]
+    s_flatten = []
+    for row in s:
+        s_flatten+=row
+
+    new_s_flatten = s_flatten.copy()
+    for i,s_b in enumerate(s_flatten):
+        new_s_flatten[permutation_map[i]] = s_flatten[i]
+    
+    ind = 0
+    for i,row in enumerate(s):
+        for j,col in enumerate(row):
+            s[i][j] = new_s_flatten[ind]
+            ind+=1
 
 # TODO: Change P-box decrypt
 def inv_shift_rows(s):
-    s[0][1], s[1][1], s[2][1], s[3][1] = s[3][1], s[0][1], s[1][1], s[2][1]
-    s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
-    s[0][3], s[1][3], s[2][3], s[3][3] = s[1][3], s[2][3], s[3][3], s[0][3]
+    s_flatten = []
+    for row in s:
+        s_flatten+=row
+
+    new_s_flatten = s_flatten.copy()
+    for i,s_b in enumerate(s_flatten):
+        new_s_flatten[permutation_map.index(i)] = s_flatten[i]
+
+    ind = 0
+    for i,row in enumerate(s):
+        for j,col in enumerate(row):
+            s[i][j] = new_s_flatten[ind]
+            ind+=1
 
 def add_round_key(s, k):
     for i in range(4):
@@ -57,54 +79,15 @@ def add_round_key(s, k):
             s[i][j] ^= k[i][j]
 
 
-# learned from https://web.archive.org/web/20100626212235/http://cs.ucsb.edu/~koc/cs178/projects/JT/aes.c
-xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
-
-# TODO: Change P-box
-def mix_single_column(a):
-    # see Sec 4.1.2 in The Design of Rijndael
-    t = a[0] ^ a[1] ^ a[2] ^ a[3]
-    u = a[0]
-    a[0] ^= t ^ xtime(a[0] ^ a[1])
-    a[1] ^= t ^ xtime(a[1] ^ a[2])
-    a[2] ^= t ^ xtime(a[2] ^ a[3])
-    a[3] ^= t ^ xtime(a[3] ^ u)
-
-# TODO: Change P-box
-def mix_columns(s):
-    for i in range(4):
-        mix_single_column(s[i])
-
-# TODO: Change P-box decypt
-def inv_mix_columns(s):
-    # see Sec 4.1.3 in The Design of Rijndael
-    for i in range(4):
-        u = xtime(xtime(s[i][0] ^ s[i][2]))
-        v = xtime(xtime(s[i][1] ^ s[i][3]))
-        s[i][0] ^= u
-        s[i][1] ^= v
-        s[i][2] ^= u
-        s[i][3] ^= v
-
-    mix_columns(s)
-
-# not needed for halka since we are using a diff key
-r_con = (
-    0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40,
-    0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D, 0x9A,
-    0x2F, 0x5E, 0xBC, 0x63, 0xC6, 0x97, 0x35, 0x6A,
-    0xD4, 0xB3, 0x7D, 0xFA, 0xEF, 0xC5, 0x91, 0x39,
-)
-
 def sub_bytes(s):
-    for i in range(4):
-        for j in range(4):
+    for i in range(2):
+        for j in range(2):
             s[i][j] = s_box[s[i][j]]
 
 
 def inv_sub_bytes(s):
-    for i in range(4):
-        for j in range(4):
+    for i in range(2):
+        for j in range(2):
             s[i][j] = inv_s_box[s[i][j]]
 
 class HALKA:
@@ -147,22 +130,28 @@ class HALKA:
         """
         Encrypts a single block of 8 byte long plaintext.
         """
+        # each block is 64 bits
         assert len(plaintext) == 64
 
-        plain_state = bytes2matrix(plaintext)
+        # 8x8 array -> 8 bytes words
+        plain_state = bytes2matrix(plaintext, n=8)
+
         add_round_key(plain_state, self._key_matrices[0])
 
         for i in range(1, self.n_rounds):
-            sub_bytes(plain_state)
+            # S block -> XOR with eight 8-bit S-boxes
+            sub_bytes(plain_state) # getting back 8 bytes
+            # P block, no mix columns in Halka
             shift_rows(plain_state)
-            mix_columns(plain_state)
+
             add_round_key(plain_state, self._key_matrices[i])
+
 
         sub_bytes(plain_state)
         shift_rows(plain_state)
         add_round_key(plain_state, self._key_matrices[-1])
 
-        return matrix2bytes(plain_state)
+        return sum(plain_state, []) 
 
     def decrypt_block(self, ciphertext):
         """
@@ -170,7 +159,7 @@ class HALKA:
         """
         assert len(ciphertext) == 64
 
-        cipher_state = bytes2matrix(ciphertext)
+        cipher_state = bytes2matrix(ciphertext, n=8)
 
         add_round_key(cipher_state, self._key_matrices[-1])
         inv_shift_rows(cipher_state)
@@ -178,10 +167,9 @@ class HALKA:
 
         for i in range(self.n_rounds - 1, 0, -1):
             add_round_key(cipher_state, self._key_matrices[i])
-            inv_mix_columns(cipher_state)
-            inv_shift_rows(cipher_state)
+            inv_shift_rows(cipher_state) # no mix columns
             inv_sub_bytes(cipher_state)
 
         add_round_key(cipher_state, self._key_matrices[0])
 
-        return matrix2bytes(cipher_state)
+        return sum(cipher_state, [])
