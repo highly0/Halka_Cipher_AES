@@ -140,7 +140,7 @@ class HALKA:
 
         for i in range(1, self.n_rounds):
             # S block -> XOR with eight 8-bit S-boxes
-            sub_bytes(plain_state) # getting back 8 bytes
+            sub_bytes(plain_state) # getting back 8 bits
             # P block, no mix columns in Halka
             shift_rows(plain_state)
 
