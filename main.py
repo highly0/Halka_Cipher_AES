@@ -1,4 +1,5 @@
-from aes import AES, split_blocks, pad
+from aes import AES
+from utils import split_blocks, pad
 
 if __name__ == '__main__':
     master_key = key = b'yourmomisawhoree' 
@@ -13,7 +14,3 @@ if __name__ == '__main__':
         block_dec = aes.decrypt_block(block_enc)
         print(block_enc)
         print(block_dec)
-    #print(plain_text_blocks)
-
-    #plain_text = aes.encrypt_block(plain_text)
-    #print(plain_text)
