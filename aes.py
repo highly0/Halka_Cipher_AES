@@ -119,7 +119,7 @@ class AES:
         assert len(master_key) in AES.rounds_by_key_size
         self.n_rounds = AES.rounds_by_key_size[len(master_key)]
         self._key_matrices = self._expand_key(master_key)
-        #print(self._key_matrices)
+        print(len(self._key_matrices))
 
     def _expand_key(self, master_key):
         """
@@ -160,12 +160,14 @@ class AES:
         Encrypts a single block of 16 byte long plaintext.
         """
         assert len(plaintext) == 16
+        print('plaintext:', plaintext)
 
         plain_state = bytes2matrix(plaintext)
 
         add_round_key(plain_state, self._key_matrices[0])
 
         for i in range(1, self.n_rounds):
+            print(plain_state)
             sub_bytes(plain_state)
             shift_rows(plain_state)
             mix_columns(plain_state)

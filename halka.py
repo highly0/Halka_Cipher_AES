@@ -97,10 +97,8 @@ r_con = (
 )
 
 def sub_bytes(s):
-    print(s_box)
     for i in range(4):
         for j in range(4):
-            print(s[i][j])
             s[i][j] = s_box[s[i][j]]
 
 
@@ -118,53 +116,40 @@ class HALKA:
         Initializes the object with a given key.
         """
         assert len(master_key) == 80 # key size must be 80 bits
-        self.n_rounds = 24 #AES.rounds_by_key_size[len(master_key)]
+        self.n_rounds = 24 
+        # for halka, length of self._key_matrices should be 25, each subarr is 64 bits
         self._key_matrices = self._expand_key(master_key)
-        #print(self._key_matrices)
 
     # TODO: change how the key is shifted
     def _expand_key(self, master_key):
         """
         Expands and returns a list of key matrices for the given master_key.
         """
-        # Initialize round keys with raw key material.
-        key_columns = bytes2matrix(master_key)
-        iteration_size = len(master_key) // 4
-
-        i = 1
-        while len(key_columns) < (self.n_rounds + 1) * 4:
-            # Copy previous word.
-            word = list(key_columns[-1])
-
-            # Perform schedule_core once every "row".
-            if len(key_columns) % iteration_size == 0:
-                # Circular shift.
-                word.append(word.pop(0))
-                # Map to S-BOX.
-                word = [s_box[b] for b in word]
-                # XOR with first byte of R-CON, since the others bytes of R-CON are 0.
-                word[0] ^= r_con[i]
-                i += 1
-            elif len(master_key) == 32 and len(key_columns) % iteration_size == 4:
-                # Run word through S-box in the fourth iteration when using a
-                # 256-bit key.
-                word = [s_box[b] for b in word]
-
-            # XOR with equivalent word from previous iteration.
-            word = xor_bytes(word, key_columns[-iteration_size])
-            key_columns.append(word)
-
-        # Group key words in 4x4 byte matrices.
-        return [key_columns[4*i : 4*(i+1)] for i in range(len(key_columns) // 4)]
+        # TODO (THIS IS JUST A PLACEHOLDER, NEED REAL KEY ALGO)
+        res = []
+        start_idx = 0
+        end_idx = start_idx + 64
+        for i in range(25):
+            if start_idx < end_idx and (end_idx - start_idx == 64):
+                curr_key = bytes2matrix(master_key[start_idx:end_idx], n=8)
+                res.append(curr_key)
+            else: # wrap around 
+                curr_key_i = master_key[start_idx:]
+                curr_key_i += master_key[:end_idx]
+                res.append(bytes2matrix(curr_key_i))
+            start_idx += 64
+            end_idx += 64
+            start_idx %= 80
+            end_idx %= 80
+        return res
 
     def encrypt_block(self, plaintext):
         """
-        Encrypts a single block of 16 byte long plaintext.
+        Encrypts a single block of 8 byte long plaintext.
         """
-        assert len(plaintext) == 16
+        assert len(plaintext) == 64
 
         plain_state = bytes2matrix(plaintext)
-
         add_round_key(plain_state, self._key_matrices[0])
 
         for i in range(1, self.n_rounds):
@@ -183,7 +168,7 @@ class HALKA:
         """
         Decrypts a single block of 16 byte long ciphertext.
         """
-        assert len(ciphertext) == 16
+        assert len(ciphertext) == 8
 
         cipher_state = bytes2matrix(ciphertext)
 

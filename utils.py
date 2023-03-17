@@ -1,10 +1,10 @@
-def pad(plaintext):
+def pad(plaintext, length=16):
     """
     Pads the given plaintext with PKCS#7 padding to a multiple of 16 bytes.
     Note that if the plaintext size is a multiple of 16,
     a whole block will be added.
     """
-    padding_len = 16 - (len(plaintext) % 16)
+    padding_len = length - (len(plaintext) % length)
     padding = bytes([padding_len] * padding_len)
     return plaintext + padding
 
@@ -21,11 +21,11 @@ def unpad(plaintext):
 
 def split_blocks(message, block_size=16, require_padding=True):
     assert len(message) % block_size == 0 or not require_padding
-    return [message[i:i+16] for i in range(0, len(message), block_size)]
+    return [message[i:i+block_size] for i in range(0, len(message), block_size)]
 
-def bytes2matrix(text):
-    """ Converts a 16-byte array into a 4x4 matrix.  """
-    return [list(text[i:i+4]) for i in range(0, len(text), 4)]
+def bytes2matrix(text, n=4):
+    """ Converts a 16-byte array into a nxn matrix.  """
+    return [list(text[i:i+n]) for i in range(0, len(text), n)]
 
 def matrix2bytes(matrix):
     """ Converts a 4x4 matrix into a 16-byte array.  """
@@ -34,3 +34,18 @@ def matrix2bytes(matrix):
 def xor_bytes(a, b):
     """ Returns a new byte array with the elements xor'ed. """
     return bytes(i^j for i, j in zip(a, b))
+
+def bits(n):
+    """ From int, generate bit stream. """
+    while n:
+        b = n & (~n+1)
+        yield b
+        n ^= b
+
+def bytes2bits(n):
+    """ Convert from bytes array to bit. """
+    res = []
+    for byte in n:
+        for bit in bits(byte):
+            res.append(bit)
+    return res
