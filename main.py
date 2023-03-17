@@ -38,5 +38,6 @@ if __name__ == '__main__':
             if len(block) != 64:
                 block = pad(block, length=64)
             # each block is 8 bytes (64 bits)
-            block_enc = halka.encrypt_block(block)
+            block_enc = halka.encrypt_block(block) # NOT WORKING RN) BUT IT RUNS
+            block_dec = halka.decrypt_block(block)
 

@@ -168,7 +168,7 @@ class HALKA:
         """
         Decrypts a single block of 16 byte long ciphertext.
         """
-        assert len(ciphertext) == 8
+        assert len(ciphertext) == 64
 
         cipher_state = bytes2matrix(ciphertext)
 
