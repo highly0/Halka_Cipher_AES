@@ -57,7 +57,6 @@ def shift_rows(s):
             s[i][j] = new_s_flatten[ind]
             ind+=1
 
-# TODO: Change P-box decrypt
 def inv_shift_rows(s):
     s_flatten = []
     for row in s:
@@ -74,20 +73,20 @@ def inv_shift_rows(s):
             ind+=1
 
 def add_round_key(s, k):
-    for i in range(4):
-        for j in range(4):
+    for i in range(8):
+        for j in range(8):
             s[i][j] ^= k[i][j]
 
 
 def sub_bytes(s):
-    for i in range(2):
-        for j in range(2):
+    for i in range(8):
+        for j in range(8):
             s[i][j] = s_box[s[i][j]]
 
 
 def inv_sub_bytes(s):
-    for i in range(2):
-        for j in range(2):
+    for i in range(8):
+        for j in range(8):
             s[i][j] = inv_s_box[s[i][j]]
 
 class HALKA:
@@ -119,7 +118,7 @@ class HALKA:
             else: # wrap around 
                 curr_key_i = master_key[start_idx:]
                 curr_key_i += master_key[:end_idx]
-                res.append(bytes2matrix(curr_key_i))
+                res.append(bytes2matrix(curr_key_i, n=8))
             start_idx += 64
             end_idx += 64
             start_idx %= 80
@@ -140,9 +139,9 @@ class HALKA:
 
         for i in range(1, self.n_rounds):
             # S block -> XOR with eight 8-bit S-boxes
-            sub_bytes(plain_state) # getting back 8 bits
+            sub_bytes(plain_state) # getting back 8 bits (8x8)
             # P block, no mix columns in Halka
-            shift_rows(plain_state)
+            shift_rows(plain_state) # getting back 8x8
 
             add_round_key(plain_state, self._key_matrices[i])
 
