@@ -27,7 +27,7 @@ if __name__ == "__main__":
             print("decrypted block:", block_dec)
             print()
             print()
-            print(aes.operations_per_round)
+            print(aes.operations_one_round)
             print(aes.operations_all_rounds)
     else:
         # 80 bits key (or 10 bytes)
@@ -57,5 +57,5 @@ if __name__ == "__main__":
             assert block == block_dec
             print()
             print()
-            print(halka.operations_per_round)
+            print(halka.operations_one_round)
             print(halka.operations_all_rounds)
