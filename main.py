@@ -59,4 +59,3 @@ if __name__ == "__main__":
             print()
             print(halka.operations_per_round)
             print(halka.operations_all_rounds)
-

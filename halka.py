@@ -98,7 +98,7 @@ def sub_bytes(s, operations_per_round=None):
     for idx, byte_word in enumerate(s):
         s[idx] = sub_bits((byte_word))
         if operations_per_round:
-            operations_per_round['sub']+=8
+            operations_per_round['sub']+=1
     return s, operations_per_round
 
 def inv_sub_bytes(s):
@@ -118,6 +118,7 @@ class HALKA:
         self.n_rounds = 24 
         # for halka, length of self._key_matrices should be 25, each subarr is 64 bits
         self._key_matrices = self._expand_key(master_key)
+        self.operations_one_round = {'sub':0, 'perm':0, 'xor':0}
         self.operations_per_round = {'sub':0, 'perm':0, 'xor':0}
         self.operations_all_rounds = {'sub':0, 'perm':0, 'xor':0}
 
@@ -170,9 +171,14 @@ class HALKA:
             plain_state, operations_per_round = shift_rows(plain_state, operations_per_round) # getting back 8x8
             plain_state, operations_per_round = add_round_key(plain_state, self._key_matrices[i], operations_per_round)
 
+            if i ==1:
+                self.operations_one_round = operations_per_round
+
         self.operations_per_round = operations_per_round
-        for k in self.operations_all_rounds.keys():
-            self.operations_all_rounds[k]+=operations_per_round[k]
+        # self.operations_all_rounds = operations_per_round
+
+        for k in self.operations_one_round.keys():
+            self.operations_all_rounds[k]+=self.operations_one_round[k]*self.n_rounds
         
         plain_state,_ = sub_bytes(plain_state)
         plain_state,_ = shift_rows(plain_state)

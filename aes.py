@@ -133,6 +133,7 @@ class AES:
         assert len(master_key) in AES.rounds_by_key_size
         self.n_rounds = AES.rounds_by_key_size[len(master_key)]
         self._key_matrices = self._expand_key(master_key)
+        self.operations_one_round = {'sub':0, 'perm':0, 'xor':0}
         self.operations_per_round = {'sub':0, 'perm':0, 'xor':0}
         self.operations_all_rounds = {'sub':0, 'perm':0, 'xor':0}
 
@@ -188,9 +189,14 @@ class AES:
             operations_per_round=mix_columns(plain_state, operations_per_round)
             operations_per_round=add_round_key(plain_state, self._key_matrices[i], operations_per_round)
 
+            if i ==1:
+                self.operations_one_round = operations_per_round
+
         self.operations_per_round = operations_per_round
-        for k in self.operations_all_rounds.keys():
-            self.operations_all_rounds[k]+=operations_per_round[k]
+        # self.operations_all_rounds = operations_per_round
+        for k in self.operations_one_round.keys():
+            self.operations_all_rounds[k]+=self.operations_one_round[k]*self.n_rounds
+
         _ = sub_bytes(plain_state)
         _ = shift_rows(plain_state)
         _ = add_round_key(plain_state, self._key_matrices[-1])
