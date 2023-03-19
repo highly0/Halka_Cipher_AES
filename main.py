@@ -7,9 +7,9 @@ if __name__ == "__main__":
     aes = True
     if aes:
         # 16 byte key (128 bits)
-        master_key = b"yourmomisawhoree"
+        master_key = b"blockchain__2023"
         aes = AES(master_key)
-        plain_text = b"your mother is a wholehearted whoreeeee!" * 25
+        plain_text = b"Introduction to blockchain is the best cource ever!" * 25
 
         plain_text_blocks = split_blocks(
             plain_text, block_size=16, require_padding=False
@@ -27,7 +27,8 @@ if __name__ == "__main__":
             print("decrypted block:", block_dec)
             print()
             print()
-            print(aes.operations_one_round)
+            print(aes.operations_one_round
+                  )
             print(aes.operations_all_rounds)
     else:
         # 80 bits key (or 10 bytes)
@@ -38,7 +39,7 @@ if __name__ == "__main__":
         master_key_bits = list(map(int, master_key_bits)) # str list -> int list
 
         halka = HALKA(master_key_bits)
-        plain_text = "your mother is such a slut!" # in bytes
+        plain_text = "Introduction to blockchain is the best cource ever!" # in bytes
         plain_text_bits = str2bits(plain_text) # from str to bits
 
         # halka takes 64 bit (8bytes) block size

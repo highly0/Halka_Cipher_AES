@@ -57,8 +57,11 @@ def shift_rows(s, operations_per_round=None):
         for j,col in enumerate(row):
             s[i][j] = new_s_flatten[ind]
             ind+=1
-            if operations_per_round:
-                operations_per_round['perm']+=1
+            # if operations_per_round:
+            #     operations_per_round['perm']+=1
+
+    if operations_per_round:
+        operations_per_round['perm']=i*j
 
     return s, operations_per_round
 
@@ -83,8 +86,11 @@ def add_round_key(s, k, operations_per_round=None):
     for i in range(8):
         for j in range(8):
             s[i][j] ^= k[i][j]
-            if operations_per_round:
-                operations_per_round['xor']+=1
+            # if operations_per_round:
+            #     operations_per_round['xor']+=1
+
+    if operations_per_round:
+        operations_per_round['xor']=i*j
 
     return s, operations_per_round
 
@@ -99,6 +105,9 @@ def sub_bytes(s, operations_per_round=None):
         s[idx] = sub_bits((byte_word))
         if operations_per_round:
             operations_per_round['sub']+=1
+
+    if operations_per_round:
+        operations_per_round['sub']=idx
     return s, operations_per_round
 
 def inv_sub_bytes(s):

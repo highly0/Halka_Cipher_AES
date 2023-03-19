@@ -18,9 +18,9 @@ num_op_HALKA_all = []
 num_op_AES_blocks = []
 num_op_HALKA_blocks = []
 
-for n in tqdm.tqdm([1,2,5,10,20,50,100,200]):
+for n in tqdm.tqdm([1,2,5,10,20,50,100,200, 400]):
     # 16 byte key (128 bits)
-    master_key = b"0xffffffffffffff"
+    master_key = b"0xffffffffffffff0xffffffffffffff" #ffffffffffffff
     # print(len(master_key))
     aes = AES(master_key)
     plain_text = b"Introduction to blockchain is the best cource ever!" * n
@@ -112,16 +112,24 @@ for n in tqdm.tqdm([1,2,5,10,20,50,100,200]):
 
     # print(input_bits)
 plt.figure()
-plt.plot(input_bits, num_op_AES_round, '*-', label='AES per round')
-plt.plot(input_bits, num_op_AES_all, '*-', label='AES all rounds')
-plt.plot(input_bits, num_op_HALKA_round, '*-', label='HALKA per round')
-plt.plot(input_bits, num_op_HALKA_all, '*-', label='HALKA all rounds')
-plt.plot(input_bits, num_op_AES_blocks, '*-', label='AES all blocks')
-plt.plot(input_bits, num_op_HALKA_blocks, '*-', label='HALKA all blocks')
-
+plt.plot(input_bits, num_op_HALKA_blocks, '*-', label=f'HALKA all blocks: 64 bits block, 24 rounds', linewidth = 2)
+plt.plot(input_bits, num_op_AES_blocks, '*-', label='AES all blocks: 128 bits block, 14 rounds', linewidth = 2)
+plt.grid()
+plt.title('Total number of operations', fontweight = 'bold')
 plt.yscale('log')
-plt.xlabel('Text in bits')
+plt.xlabel('Plain text in bits')
 plt.ylabel('Number of XOR, substitution and permutation')
 plt.legend()
-plt.savefig('comparing.png')
+plt.savefig('All_blocks.png')
 
+plt.figure()
+# plt.plot(input_bits, num_op_HALKA_all, '*-', label='HALKA all rounds')
+# plt.plot(input_bits, num_op_AES_all, '*-', label='AES all rounds')
+plt.plot(input_bits, num_op_HALKA_round, '*-', label='HALKA per round', linewidth = 2)
+plt.plot(input_bits, num_op_AES_round, '*-', label='AES per round', linewidth = 2)
+plt.grid()
+plt.title('Number of operations for one round', fontweight = 'bold')
+plt.xlabel('Plain text in bits')
+plt.ylabel('Number of XOR, substitution and permutation')
+plt.legend()
+plt.savefig('Per_round.png')

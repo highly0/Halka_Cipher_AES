@@ -44,7 +44,8 @@ def shift_rows(s, operations_per_round=None):
     s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
     s[0][3], s[1][3], s[2][3], s[3][3] = s[3][3], s[0][3], s[1][3], s[2][3]
     if operations_per_round:
-        operations_per_round['perm']+=12
+        operations_per_round['perm']+=12*8
+        # print('shift_rows 12')
     return operations_per_round
 
 
@@ -57,8 +58,11 @@ def add_round_key(s, k, operations_per_round=None):
     for i in range(4):
         for j in range(4):
             s[i][j] ^= k[i][j]
-            if operations_per_round:
-                operations_per_round['xor']+=1
+            # if operations_per_round:
+            #     operations_per_round['xor']+=1*8
+    if operations_per_round:
+        operations_per_round['xor']=i*j*8
+        # print(f'XOR {i*j}')
     return operations_per_round
 
 
@@ -74,8 +78,9 @@ def mix_single_column(a, operations_per_round=None):
     a[1] ^= t ^ xtime(a[1] ^ a[2])
     a[2] ^= t ^ xtime(a[2] ^ a[3])
     a[3] ^= t ^ xtime(a[3] ^ u)
-    if operations_per_round:
-        operations_per_round['perm']+=4
+
+    # if operations_per_round:
+    #     operations_per_round['perm']+=4*8
     return operations_per_round
 
 
@@ -83,6 +88,8 @@ def mix_columns(s, operations_per_round=None):
     for i in range(4):
         operations_per_round = mix_single_column(s[i], operations_per_round)
 
+    if operations_per_round:
+        operations_per_round['perm']+=i*4*8
     return operations_per_round
 
 
@@ -110,8 +117,11 @@ def sub_bytes(s, operations_per_round=None):
     for i in range(4):
         for j in range(4):
             s[i][j] = s_box[s[i][j]]
-            if operations_per_round:
-                operations_per_round['sub']+=1
+            # if operations_per_round:
+            #     operations_per_round['sub']+=8
+    if operations_per_round:
+        operations_per_round['sub']=i*j*8
+    #     print(f'Sub {i*j}')
     return operations_per_round
 
 
