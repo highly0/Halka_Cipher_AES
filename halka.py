@@ -118,8 +118,6 @@ class HALKA:
         self.n_rounds = 24 
         # for halka, length of self._key_matrices should be 25, each subarr is 64 bits
         self._key_matrices = self._expand_key(master_key)
-        self.operations_one_round = {'sub':0, 'perm':0, 'xor':0}
-        self.operations_per_round = {'sub':0, 'perm':0, 'xor':0}
         self.operations_all_rounds = {'sub':0, 'perm':0, 'xor':0}
 
     def _expand_key(self, master_key):  
@@ -164,8 +162,12 @@ class HALKA:
         plain_state = b2matrix(plaintext, n=8)
         plain_state,_ = add_round_key(plain_state, self._key_matrices[0])
 
-        operations_per_round = {'sub':0, 'perm':0, 'xor':0}
         for i in range(1, self.n_rounds):
+            if i ==1:
+                operations_per_round = {'sub':0, 'perm':0, 'xor':0}
+            else:
+                operations_per_round = None
+
             # S block -> XOR with eight 8-bit S-boxes
             plain_state, operations_per_round = sub_bytes(plain_state, operations_per_round)
             plain_state, operations_per_round = shift_rows(plain_state, operations_per_round) # getting back 8x8
@@ -173,9 +175,6 @@ class HALKA:
 
             if i ==1:
                 self.operations_one_round = operations_per_round
-
-        self.operations_per_round = operations_per_round
-        # self.operations_all_rounds = operations_per_round
 
         for k in self.operations_one_round.keys():
             self.operations_all_rounds[k]+=self.operations_one_round[k]*self.n_rounds
