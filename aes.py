@@ -39,10 +39,13 @@ inv_s_box = (
 
 
 
-def shift_rows(s):
+def shift_rows(s, operations_per_round=None):
     s[0][1], s[1][1], s[2][1], s[3][1] = s[1][1], s[2][1], s[3][1], s[0][1]
     s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
     s[0][3], s[1][3], s[2][3], s[3][3] = s[3][3], s[0][3], s[1][3], s[2][3]
+    if operations_per_round:
+        operations_per_round['perm']+=12
+    return operations_per_round
 
 
 def inv_shift_rows(s):
@@ -50,17 +53,20 @@ def inv_shift_rows(s):
     s[0][2], s[1][2], s[2][2], s[3][2] = s[2][2], s[3][2], s[0][2], s[1][2]
     s[0][3], s[1][3], s[2][3], s[3][3] = s[1][3], s[2][3], s[3][3], s[0][3]
 
-def add_round_key(s, k):
+def add_round_key(s, k, operations_per_round=None):
     for i in range(4):
         for j in range(4):
             s[i][j] ^= k[i][j]
+            if operations_per_round:
+                operations_per_round['xor']+=1
+    return operations_per_round
 
 
 # learned from https://web.archive.org/web/20100626212235/http://cs.ucsb.edu/~koc/cs178/projects/JT/aes.c
 xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
 
 
-def mix_single_column(a):
+def mix_single_column(a, operations_per_round=None):
     # see Sec 4.1.2 in The Design of Rijndael
     t = a[0] ^ a[1] ^ a[2] ^ a[3]
     u = a[0]
@@ -68,11 +74,16 @@ def mix_single_column(a):
     a[1] ^= t ^ xtime(a[1] ^ a[2])
     a[2] ^= t ^ xtime(a[2] ^ a[3])
     a[3] ^= t ^ xtime(a[3] ^ u)
+    if operations_per_round:
+        operations_per_round['perm']+=4
+    return operations_per_round
 
 
-def mix_columns(s):
+def mix_columns(s, operations_per_round=None):
     for i in range(4):
-        mix_single_column(s[i])
+        operations_per_round = mix_single_column(s[i], operations_per_round)
+
+    return operations_per_round
 
 
 def inv_mix_columns(s):
@@ -95,10 +106,13 @@ r_con = (
     0xD4, 0xB3, 0x7D, 0xFA, 0xEF, 0xC5, 0x91, 0x39,
 )
 
-def sub_bytes(s):
+def sub_bytes(s, operations_per_round=None):
     for i in range(4):
         for j in range(4):
             s[i][j] = s_box[s[i][j]]
+            if operations_per_round:
+                operations_per_round['sub']+=1
+    return operations_per_round
 
 
 def inv_sub_bytes(s):
@@ -119,6 +133,8 @@ class AES:
         assert len(master_key) in AES.rounds_by_key_size
         self.n_rounds = AES.rounds_by_key_size[len(master_key)]
         self._key_matrices = self._expand_key(master_key)
+        self.operations_per_round = {'sub':0, 'perm':0, 'xor':0}
+        self.operations_all_rounds = {'sub':0, 'perm':0, 'xor':0}
 
     def _expand_key(self, master_key):
         """
@@ -162,17 +178,22 @@ class AES:
 
         plain_state = b2matrix(plaintext)
 
-        add_round_key(plain_state, self._key_matrices[0])
+        _ =add_round_key(plain_state, self._key_matrices[0])
+
+        operations_per_round = {'sub':0, 'perm':0, 'xor':0}
 
         for i in range(1, self.n_rounds):
-            sub_bytes(plain_state)
-            shift_rows(plain_state)
-            mix_columns(plain_state)
-            add_round_key(plain_state, self._key_matrices[i])
+            operations_per_round=sub_bytes(plain_state, operations_per_round)
+            operations_per_round=shift_rows(plain_state, operations_per_round)
+            operations_per_round=mix_columns(plain_state, operations_per_round)
+            operations_per_round=add_round_key(plain_state, self._key_matrices[i], operations_per_round)
 
-        sub_bytes(plain_state)
-        shift_rows(plain_state)
-        add_round_key(plain_state, self._key_matrices[-1])
+        self.operations_per_round = operations_per_round
+        for k in self.operations_all_rounds.keys():
+            self.operations_all_rounds[k]+=operations_per_round[k]
+        _ = sub_bytes(plain_state)
+        _ = shift_rows(plain_state)
+        _ = add_round_key(plain_state, self._key_matrices[-1])
 
         return matrix2b(plain_state)
 
@@ -184,16 +205,16 @@ class AES:
 
         cipher_state = b2matrix(ciphertext)
 
-        add_round_key(cipher_state, self._key_matrices[-1])
+        _ = add_round_key(cipher_state, self._key_matrices[-1])
         inv_shift_rows(cipher_state)
         inv_sub_bytes(cipher_state)
 
         for i in range(self.n_rounds - 1, 0, -1):
-            add_round_key(cipher_state, self._key_matrices[i])
+            _ = add_round_key(cipher_state, self._key_matrices[i])
             inv_mix_columns(cipher_state)
             inv_shift_rows(cipher_state)
             inv_sub_bytes(cipher_state)
 
-        add_round_key(cipher_state, self._key_matrices[0])
+        _ = add_round_key(cipher_state, self._key_matrices[0])
 
         return matrix2b(cipher_state)

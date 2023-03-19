@@ -4,7 +4,7 @@ from utils import split_blocks, pad, str2bits, bits2str
 from bitstring import BitArray
 
 if __name__ == "__main__":
-    aes = False
+    aes = True
     if aes:
         # 16 byte key (128 bits)
         master_key = b"yourmomisawhoree"
@@ -27,6 +27,8 @@ if __name__ == "__main__":
             print("decrypted block:", block_dec)
             print()
             print()
+            print(aes.operations_per_round)
+            print(aes.operations_all_rounds)
     else:
         # 80 bits key (or 10 bytes)
         #[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
@@ -55,4 +57,6 @@ if __name__ == "__main__":
             assert block == block_dec
             print()
             print()
+            print(halka.operations_per_round)
+            print(halka.operations_all_rounds)
 

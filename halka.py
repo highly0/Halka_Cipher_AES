@@ -42,7 +42,7 @@ permutation_map = [10, 21, 28, 38, 44, 48, 59, 1, 51, 15, 41, 2, 60, 34, 24, 20,
                 17, 31, 36, 53, 12, 46, 30, 52, 11, 4, 23, 35, 40, 63, 8, 39, 3, 43,57,49,
                 16,25,37,42,61,50, 0, 9, 18,26,58,55, 7, 19,29,14,47,32,33, 5, 62,45,13,54,22,27]
 
-def shift_rows(s):
+def shift_rows(s, operations_per_round=None):
     """ shift rows for p-box """
     s_flatten = []
     for row in s:
@@ -57,7 +57,10 @@ def shift_rows(s):
         for j,col in enumerate(row):
             s[i][j] = new_s_flatten[ind]
             ind+=1
-    return s
+            if operations_per_round:
+                operations_per_round['perm']+=1
+
+    return s, operations_per_round
 
 def inv_shift_rows(s):
     """ for decrypting p-box"""
@@ -76,11 +79,14 @@ def inv_shift_rows(s):
             ind+=1
     return s
 
-def add_round_key(s, k):
+def add_round_key(s, k, operations_per_round=None):
     for i in range(8):
         for j in range(8):
             s[i][j] ^= k[i][j]
-    return s
+            if operations_per_round:
+                operations_per_round['xor']+=1
+
+    return s, operations_per_round
 
 def sub_bits(s):
     return number2bits(s_box[bits2number(s)])
@@ -88,10 +94,12 @@ def sub_bits(s):
 def inv_sub_bits(s):
     return number2bits(inv_s_box[bits2number(s)])
 
-def sub_bytes(s):
+def sub_bytes(s, operations_per_round=None):
     for idx, byte_word in enumerate(s):
         s[idx] = sub_bits((byte_word))
-    return s
+        if operations_per_round:
+            operations_per_round['sub']+=8
+    return s, operations_per_round
 
 def inv_sub_bytes(s):
     for idx, byte_word in enumerate(s):
@@ -110,6 +118,8 @@ class HALKA:
         self.n_rounds = 24 
         # for halka, length of self._key_matrices should be 25, each subarr is 64 bits
         self._key_matrices = self._expand_key(master_key)
+        self.operations_per_round = {'sub':0, 'perm':0, 'xor':0}
+        self.operations_all_rounds = {'sub':0, 'perm':0, 'xor':0}
 
     def _expand_key(self, master_key):  
         keys = []
@@ -151,17 +161,22 @@ class HALKA:
 
         # 8x8 array -> 8 bytes words
         plain_state = b2matrix(plaintext, n=8)
-        plain_state = add_round_key(plain_state, self._key_matrices[0])
+        plain_state,_ = add_round_key(plain_state, self._key_matrices[0])
 
+        operations_per_round = {'sub':0, 'perm':0, 'xor':0}
         for i in range(1, self.n_rounds):
             # S block -> XOR with eight 8-bit S-boxes
-            plain_state = sub_bytes(plain_state)
-            plain_state = shift_rows(plain_state) # getting back 8x8
-            plain_state = add_round_key(plain_state, self._key_matrices[i])
+            plain_state, operations_per_round = sub_bytes(plain_state, operations_per_round)
+            plain_state, operations_per_round = shift_rows(plain_state, operations_per_round) # getting back 8x8
+            plain_state, operations_per_round = add_round_key(plain_state, self._key_matrices[i], operations_per_round)
 
-        plain_state = sub_bytes(plain_state)
-        plain_state = shift_rows(plain_state)
-        plain_state = add_round_key(plain_state, self._key_matrices[-1])
+        self.operations_per_round = operations_per_round
+        for k in self.operations_all_rounds.keys():
+            self.operations_all_rounds[k]+=operations_per_round[k]
+        
+        plain_state,_ = sub_bytes(plain_state)
+        plain_state,_ = shift_rows(plain_state)
+        plain_state,_ = add_round_key(plain_state, self._key_matrices[-1])
 
         return sum(plain_state, []) 
 
@@ -172,15 +187,15 @@ class HALKA:
         assert len(ciphertext) == 64
         cipher_state = b2matrix(ciphertext, n=8)
 
-        cipher_state = add_round_key(cipher_state, self._key_matrices[-1])
+        cipher_state,_ = add_round_key(cipher_state, self._key_matrices[-1])
         cipher_state = inv_shift_rows(cipher_state)
         cipher_state = inv_sub_bytes(cipher_state)
 
         for i in range(self.n_rounds - 1, 0, -1):
-            cipher_state = add_round_key(cipher_state, self._key_matrices[i])
+            cipher_state,_ = add_round_key(cipher_state, self._key_matrices[i])
             cipher_state =  inv_shift_rows(cipher_state) # no mix columns
             cipher_state = inv_sub_bytes(cipher_state)
 
-        cipher_state = add_round_key(cipher_state, self._key_matrices[0])
+        cipher_state,_ = add_round_key(cipher_state, self._key_matrices[0])
 
         return sum(cipher_state, [])
