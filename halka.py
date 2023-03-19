@@ -1,4 +1,4 @@
-from utils import bytes2matrix, matrix2bytes, xor_bytes
+from utils import b2matrix, matrix2b, xor_bytes, rotate, shift_by, xor_bits, bits2number, number2bits
 
 s_box = (
         0x24, 0x2c, 0x20, 0xdc, 0x26, 0x73, 0xd8, 0x91, 0x25, 0xb7, 0x8f, 0x9c, 0xda, 0x1f, 0xfe, 0xe9, 
@@ -43,6 +43,7 @@ permutation_map = [10, 21, 28, 38, 44, 48, 59, 1, 51, 15, 41, 2, 60, 34, 24, 20,
                 16,25,37,42,61,50, 0, 9, 18,26,58,55, 7, 19,29,14,47,32,33, 5, 62,45,13,54,22,27]
 
 def shift_rows(s):
+    """ shift rows for p-box """
     s_flatten = []
     for row in s:
         s_flatten+=row
@@ -56,8 +57,10 @@ def shift_rows(s):
         for j,col in enumerate(row):
             s[i][j] = new_s_flatten[ind]
             ind+=1
+    return s
 
 def inv_shift_rows(s):
+    """ for decrypting p-box"""
     s_flatten = []
     for row in s:
         s_flatten+=row
@@ -71,23 +74,29 @@ def inv_shift_rows(s):
         for j,col in enumerate(row):
             s[i][j] = new_s_flatten[ind]
             ind+=1
+    return s
 
 def add_round_key(s, k):
     for i in range(8):
         for j in range(8):
             s[i][j] ^= k[i][j]
+    return s
 
+def sub_bits(s):
+    return number2bits(s_box[bits2number(s)])
+
+def inv_sub_bits(s):
+    return number2bits(inv_s_box[bits2number(s)])
 
 def sub_bytes(s):
-    for i in range(8):
-        for j in range(8):
-            s[i][j] = s_box[s[i][j]]
-
+    for idx, byte_word in enumerate(s):
+        s[idx] = sub_bits((byte_word))
+    return s
 
 def inv_sub_bytes(s):
-    for i in range(8):
-        for j in range(8):
-            s[i][j] = inv_s_box[s[i][j]]
+    for idx, byte_word in enumerate(s):
+        s[idx] = inv_sub_bits((byte_word))
+    return s
 
 class HALKA:
     """
@@ -102,28 +111,36 @@ class HALKA:
         # for halka, length of self._key_matrices should be 25, each subarr is 64 bits
         self._key_matrices = self._expand_key(master_key)
 
-    # TODO: change how the key is shifted
-    def _expand_key(self, master_key):
-        """
-        Expands and returns a list of key matrices for the given master_key.
-        """
-        # TODO (THIS IS JUST A PLACEHOLDER, NEED REAL KEY ALGO)
-        res = []
-        start_idx = 0
-        end_idx = start_idx + 64
-        for i in range(25):
-            if start_idx < end_idx and (end_idx - start_idx == 64):
-                curr_key = bytes2matrix(master_key[start_idx:end_idx], n=8)
-                res.append(curr_key)
-            else: # wrap around 
-                curr_key_i = master_key[start_idx:]
-                curr_key_i += master_key[:end_idx]
-                res.append(bytes2matrix(curr_key_i, n=8))
-            start_idx += 64
-            end_idx += 64
-            start_idx %= 80
-            end_idx %= 80
-        return res
+    def _expand_key(self, master_key):  
+        keys = []
+        newKS = master_key
+
+        for round_counter in range(self.n_rounds+1):
+            key = []
+            
+            # rotate 57 bits to the left
+            newKS = rotate(newKS) 
+            newKS = shift_by(newKS, 57)
+
+            # subbing leftmost 8 bit to our s box: 79...72
+            left_most_8 = newKS[72:]
+            eight_bits = sub_bits(left_most_8) # apply s-box
+            newKS[72:] = eight_bits
+
+            # xor our round coutner with leftmost 8 bit
+            rc = number2bits(round_counter, 5) #round counter -> bits
+            five_bits = newKS[15:20] # 15...19
+            five_bits = xor_bits(five_bits, rc)
+            newKS[15:20] = five_bits
+            
+            # adding left most 64 bits (8x8): 79...16
+            left_most_64 = b2matrix(list(reversed(newKS[16:])), n=8)
+            key.append(left_most_64)
+ 
+            keys.extend(key)
+
+        return keys
+
 
     def encrypt_block(self, plaintext):
         """
@@ -133,42 +150,37 @@ class HALKA:
         assert len(plaintext) == 64
 
         # 8x8 array -> 8 bytes words
-        plain_state = bytes2matrix(plaintext, n=8)
-
-        add_round_key(plain_state, self._key_matrices[0])
+        plain_state = b2matrix(plaintext, n=8)
+        plain_state = add_round_key(plain_state, self._key_matrices[0])
 
         for i in range(1, self.n_rounds):
             # S block -> XOR with eight 8-bit S-boxes
-            sub_bytes(plain_state) # getting back 8 bits (8x8)
-            # P block, no mix columns in Halka
-            shift_rows(plain_state) # getting back 8x8
+            plain_state = sub_bytes(plain_state)
+            plain_state = shift_rows(plain_state) # getting back 8x8
+            plain_state = add_round_key(plain_state, self._key_matrices[i])
 
-            add_round_key(plain_state, self._key_matrices[i])
-
-
-        sub_bytes(plain_state)
-        shift_rows(plain_state)
-        add_round_key(plain_state, self._key_matrices[-1])
+        plain_state = sub_bytes(plain_state)
+        plain_state = shift_rows(plain_state)
+        plain_state = add_round_key(plain_state, self._key_matrices[-1])
 
         return sum(plain_state, []) 
 
     def decrypt_block(self, ciphertext):
         """
-        Decrypts a single block of 16 byte long ciphertext.
+        Decrypts a single block of 8 byte long ciphertext.
         """
         assert len(ciphertext) == 64
+        cipher_state = b2matrix(ciphertext, n=8)
 
-        cipher_state = bytes2matrix(ciphertext, n=8)
-
-        add_round_key(cipher_state, self._key_matrices[-1])
-        inv_shift_rows(cipher_state)
-        inv_sub_bytes(cipher_state)
+        cipher_state = add_round_key(cipher_state, self._key_matrices[-1])
+        cipher_state = inv_shift_rows(cipher_state)
+        cipher_state = inv_sub_bytes(cipher_state)
 
         for i in range(self.n_rounds - 1, 0, -1):
-            add_round_key(cipher_state, self._key_matrices[i])
-            inv_shift_rows(cipher_state) # no mix columns
-            inv_sub_bytes(cipher_state)
+            cipher_state = add_round_key(cipher_state, self._key_matrices[i])
+            cipher_state =  inv_shift_rows(cipher_state) # no mix columns
+            cipher_state = inv_sub_bytes(cipher_state)
 
-        add_round_key(cipher_state, self._key_matrices[0])
+        cipher_state = add_round_key(cipher_state, self._key_matrices[0])
 
         return sum(cipher_state, [])

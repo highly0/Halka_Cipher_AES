@@ -1,4 +1,4 @@
-from utils import bytes2matrix, matrix2bytes, xor_bytes
+from utils import b2matrix, matrix2b, xor_bytes
 
 s_box = (
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -125,7 +125,7 @@ class AES:
         Expands and returns a list of key matrices for the given master_key.
         """
         # Initialize round keys with raw key material.
-        key_columns = bytes2matrix(master_key)
+        key_columns = b2matrix(master_key)
         iteration_size = len(master_key) // 4
 
         i = 1
@@ -160,7 +160,7 @@ class AES:
         """
         assert len(plaintext) == 16
 
-        plain_state = bytes2matrix(plaintext)
+        plain_state = b2matrix(plaintext)
 
         add_round_key(plain_state, self._key_matrices[0])
 
@@ -174,7 +174,7 @@ class AES:
         shift_rows(plain_state)
         add_round_key(plain_state, self._key_matrices[-1])
 
-        return matrix2bytes(plain_state)
+        return matrix2b(plain_state)
 
     def decrypt_block(self, ciphertext):
         """
@@ -182,7 +182,7 @@ class AES:
         """
         assert len(ciphertext) == 16
 
-        cipher_state = bytes2matrix(ciphertext)
+        cipher_state = b2matrix(ciphertext)
 
         add_round_key(cipher_state, self._key_matrices[-1])
         inv_shift_rows(cipher_state)
@@ -196,4 +196,4 @@ class AES:
 
         add_round_key(cipher_state, self._key_matrices[0])
 
-        return matrix2bytes(cipher_state)
+        return matrix2b(cipher_state)
